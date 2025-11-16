@@ -1,4 +1,4 @@
-# PoCN projects
+# Physics of Complex Networks: Final Projects
 End-of-semester projects for the course *Physics of Complex Networks: Structure and Dynamics*, A.Y. 2024/2025 at the University of Padova.
 
 The following two projects were chosen:
