@@ -1,7 +1,8 @@
 \chapter{Task 34: Game Theory on Complex Networks}
 
-\resp{Author name(s)...}
+\resp{Laura Schulze}
 
+% TODO: Remove this!!!!!
 \emph{
 Structure as\footnote{Remove this part from the report}:
 \begin{itemize}
@@ -11,19 +12,121 @@ Structure as\footnote{Remove this part from the report}:
 \end{itemize}
 A total of 3 pages + 5 supplementary pages per task
 }
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Paper Notes}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+For now, I'll just dump my notes from the reference papers here. Hopefully, this will make it easier later to write a proper explanation/background section. The reference papers are~\cite{Cardillo_2010} and~\cite{Sinatra_2009}. Let's start with~\citet{Sinatra_2009}:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{The Ultimatum Game in Complex Networks~\cite{Sinatra_2009}.}
+A reminder: The ultimatum game (UG) has 2 players (proposer P and responder R) trying to split a resource. P proposes a split, R decides whether or not to accept. If accepted, the resource is divided with the proposed split, if rejected, none of the players get anything.\par
+On a network, there are apparently radical differences between dynamics on homogeneous networks and heterogeneous, scale-free networks. The paper studies the UG on Erdös-Rényi and scale-free networks with three different kinds of settings of the parameters characterising the players, and two kinds of evolution rules (fitness-dependent \& Bak-Sneppen inspired).
+%
+\paragraph{Model} 
+$N$ indiviuals associated with the $N$ nodes of a graph (ER or SF with $\gamma=3$), who play the UG. At each time step, each node plays round robin of the game with all its neighbors. Each pair plays twice, switching the P/R roles. The reward is equal to 1. Individuals $i \in \left( 1, \dots, N\right)$ are characterized through parameters $(p_i, q_i) \in \left[0, 1\right]$. Individual $i$ as P offers division $p_i$ of the reward (proposing R gets $p_i$), and $i$ as R will only accept proposals greater than its acceptance threshold $q_i$. When neighboring nodes $(i, j)$, bargain, their respective payoffs $\Pi_i$, $\Pi_j$ evolve as follows:
+\begin{itemize}
+	\item $i$ is P, $j$ is R, then $\Delta\Pi_{ij}^P = 1-p_i$, $\Delta\Pi_{ji}^R = p_i$ if $p_i>q_j$ (they agree), $\Delta\Pi_{ij}^P = \Delta\Pi_{ji}^R = 0$ otherwise.
+	\item Final payoff of node $i$ after playing with all its neighbors: 
+	\begin{equation}
+		\Pi_{i} = \sum_{j\in\Gamma_i} \left(\Delta\Pi_{ij}^P + \Delta\Pi_{ij}^R\right) \ ,
+	\end{equation}
+	where $\Gamma_i$ is the set of $i$'s neighbors.
+\end{itemize} 
+Three different scenarios for setting the parameters $p_i$, $q_i$ are studied:
+\begin{enumerate}[label=(\alph*)]
+	\item $p_i = q_i$ for all players $\rightarrow$ \emph{fair/empathetic setting} \label{it:fair_setting}
+	\begin{itemize}
+		\item if $p_i \neq p_j$, deal is always concluded in only one direction (largest offer accepted), and payoff increments are (if e.g. $p_i>p_j$):
+		\begin{align}
+			\Delta\Pi_{ij} &= \Delta\Pi_{ij}^P = 1-p_i \ ,\\
+			\Delta\Pi_{ji} &= \Delta\Pi_{ji}^R = p_i \ .
+		\end{align}
+		\item if $p_i = p_j$, deal is always concluded in both directions, and payoff increments are $\Delta\Pi_{ij} = \Delta\Pi_{ji} = 1 \ .$
+	\end{itemize}
+	\item $p_i = 1- q_i$ for all players $\rightarrow$ \emph{role-ignoring/pragmatic setting}\label{it:pragmatic_setting}
+	\begin{itemize}
+		\item if $p_i + p_j \geq 1$: deal concludes in both directions, payoffs are 
+		\begin{align}
+			\Delta\Pi_{ij} &= \Delta\Pi_{ij}^P + \Delta\Pi_{ij}^R = (1-p_i) + p_j \ ,\\
+			\Delta\Pi_{ji} &= \Delta\Pi_{ji}^P + \Delta\Pi_{ji}^R = (1-p_j) + p_i  \ .
+		\end{align}
+		\item if $p_i + p_j < 1$: no deal is struck, $\Delta\Pi_{ij} = \Delta\Pi_{ji} = 0$
+	\end{itemize}
+	\item $p_i$, $q_i$ independent for all players \label{it:indep_setting}
+\end{enumerate}
+After each round of bargaining with all neighbors, player $i$ updates its strategy. Two schemes are investigated:
+\begin{itemize}
+	\item \emph{Natural selection.} $i$ picks a random neighbor $j$ and compares the payoffs.If $\Pi_i < \pi_j$, $i$ adopts $j$'s strategy $(p_j, q_j)$ with a probability proportional to the payoff difference: 
+	\begin{equation}
+		P_{ij} = \frac{\Pi_j - \Pi_i}{2\max{k_i, k_j}} \ ,
+	\end{equation}
+	with $k_i$, $k_j$ being the degree of $i$ and $j$, respectively. Otherwise, $i$ keeps its strategy.
+	\item \emph{Social penalty.} The player with the lowest payoff in the graph, as well as all its neighbors are removed and replaced with new players with random strategies, who only inherit their contacts.
+\end{itemize}
+At the end of each round, the payoffs are reset to 0, making it a one-shot game without explicit reputation mechanism.
+%
+\paragraph{Simulations}
+Simulations were carried out on ER and SF networks with $N= 10^4$ nodes and an average degree $\langle k\rangle = 4$ for both cases. Initially, a random offer $p$ drawn from a uniform distribution in interval $[0, 1]$ is assigned to each individual (which in scenario \ref{it:fair_setting} and \ref{it:pragmatic_setting} determines the corresponding $q$, and in scenario \ref{it:indep_setting} the $q$ is assigned randomly and independently from $p$). The system then evolves for a number of time steps until a stationary regime is reached. The results are averaged over $10^3$ realizations of both underlying network and initial conditions.
+%
+\paragraph{Main results}
+Natural selection: asymptotic offers agree with well-mixed predictions. The number of different strategies surviving the natural selection process is remarkably lower in SF networks than in ER networks.
+\begin{itemize}
+	\item Fair players $p=q$: 2 stages, first extinction of high offers, then lower side approaches 0.5, in the end peak at $p$ barely below 0.5, more broad with SF networks.
+	\item Pragmatic players $p = 1-q$: mostly mirror-symmetric version of Fair player scenario.
+	\item Independent players: ...worse. 
+\end{itemize}
+Social penalty: Equilibrium reached more slowly.
+\begin{itemize}
+	\item Fair players $p=q$: ER networks yield nearly flat distribution, any strategy can survive. SF networks: peak at around $p=0.75$ (mostly the low-connectivity players), but every strategy can survive. Hubs exploit their neighbors.
+	\item Pragmatic players $p = 1-q$: ER similar to fair scenario, flat distribution with slowly decreasing tails at both ends, SF is bimodal
+	\item Independent players: something interesting, apparently?
+\end{itemize}
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Co-evolution of strategies and update rules in the prisoner's dilemma game on complex networks~\cite{Cardillo_2010}}
 
-\section{A section...}
- 
-Reference examples: book~\cite{barrat2008dynamical}, article~\cite{de2013mathematical}, website~\cite{weforumProtectingCritical}
+This paper studies a weak prisoner's dilemma (PD) with both strategies and update rules subject to evolutionary pressure (co-evolution).
+\paragraph{Model}
+The payoff matrix for the weak prisoner's dilemma can be described as follows, with $b>1$ being the payoff for defecting while the other player cooperates (Weak PD because there's no risk in cooperating):
+\begin{equation}
+	\bordermatrix{ & \mathrm{C} & \mathrm{D} \cr
+		\mathrm{C} & 1 & 0 \cr
+		\mathrm{D} & b & 0 } \qquad .
+\end{equation}
+Network nodes correspond to players, who interact through games with their neighbors. Each node has a strategy and an update rule. Strategy can be cooperation (C) or defection (D). Update rule can be replicator (REP), Moran-like (MOR) or unconditional imitation (UI). Copying a neighbors strategy also means copying its update rule. At each time step, each node plays against all its neighbors, using the same strategy for all, and collecting a total payoff $f_i$. Based on the total payoff, the player updates its strategy according to an update rule:
+\begin{itemize}
+	\item \emph{REP:} Player $i$ picks a random neighbor $j$ and compares payoffs. If $f_i < f_j$, $i$ copies $j$'s strategy (and update rule) with a probability 
+	\begin{equation}
+		\Pi = \frac{f_j - f_i}{b\max{(k_i, k_j)}} \ ,
+	\end{equation} 
+	with $k_i$, $k_j$ being the degree of $i$ and $j$, respectively.
+	%
+	\item \emph{MOR:} Player $i$ chooses one of its neighbors proportionally to their payoff, with the probability of choosing neighbor $j$ being given by
+	\begin{equation}
+		P_j = \frac{A_{ij} f_j}{\sum_{l} A_{il} f_l} \ .
+	\end{equation}
+	Accordingly, $i$ adopts the strategy and update rule of the chosen player. 
+	%
+	\item \emph{UI:} Player $i$ compares payoff with its neighbor with the largest payoff, let's say $j$. If $f_i < f_j$, $i$ copies $j$'s strategy (and update rule).
+	%
+\end{itemize}
+The networks are generated with a strategy based on \cite{Gomez-Gardenes_2006} using a control parameter $\alpha \in [0, 1]$ that determines the degree heterogeneity. Starting from a fully connected graph with $m_0$ nodes and a set $\mathcal{U}$ of $N-m_0$ unconnected nodes, each growing step, a random unconnected node from $\mathcal{U}$ forms $m$ new links, each of which either with probability $\alpha$ connects to any of the other nodes with uniform probability, or with probability $1-\alpha$ connects with BA preferential attachment. The paper's analysis focuses on $\alpha=0$ (BA-graph), $\alpha=0.5$ (mixed), and $\alpha = 1$ (ER-graph).
+%
+\paragraph{Simulations}
+Starting with each node randomly assigned C or D, with equal probabilities, and random assignment of update rules (only comparing 2 at once, with a fixed fraction of each rule), the simulation proceeds round by round, with payoffs reset after each, and until a stationary state is reached (according to the reference paper, this is achieved after 4000 rounds). The "magnitudes of interest"(?) are measured over an additional 100 rounds, and the process is repeated over 100 realization for every parameter set. Payoff parameter $b$ was varied from 1 to 2 in 0.025 steps, update rule frequency was varied form 0 to 1 in similar steps. Networks with $N=5000$ nodes and an average degree $\langle k \rangle = 6$ were used, with  $\alpha=0$ (BA-graph), $\alpha=0.5$ (mixed), and $\alpha = 1$ (ER-graph).
 
-\section{Another section...}
+\paragraph{Main results}
+The average level of cooperation in the asymptotic regime $\langle c \rangle$ and the final composition of the population in terms of update rules are analyzed.
+\begin{itemize}
+	\item \emph{MOR vs REP:} REP replaces all the MOR players regardless of network topology (unless initial REP is incredibly low). REP player cooperation depends on temptation $b$ and network topology (More cooperation for SF networks).
+	\item \emph{MOR vs UI:} UI suppresses MOR only when cooperation is asymptotic result. On ER: final population split into MOR defectors and UI cooperators. Mixed: some UI defectors too. BA: In regime with $0.4 < x_\mathrm{UI} < 0.6$ MOR and UI coexistence enhances average cooperation level w.r.t. to UI only. 
+	\item \emph{REP vs UI:} BA: REP invade population for increasing temptation $b$. Final fraction of UI increases with its initial population. Small fraction of UI with majority REP appears to promote cooperation. Mixed and ER: Cooperation decreases with heterogeneity decrease. In some regimes (intermediate $b$, moderate initial REP) significant fraction of population ends as UI players, which are main source of cooperation. Outside those regions: REP prevalence, cooperate or defect depending on $b$.
+\end{itemize}
+% outlook: 3 update rule competition? Fermi rule/best response rule? Different games?
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Another section...}%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\lipsum[2-4]
 
-\lipsum[2-4]
-\lipsum[2-4]
-\lipsum[2-4]
-\lipsum[2-4]
-\lipsum[2-4]
 
 \newpage
