@@ -332,6 +332,15 @@ def run_UG_step(src, trg, nb_row_ptr, nb_col_indices, degrees, strategies_curr, 
 
     return payoffs, strategies_new, update_rules_new
 
+# numba helper bc according to the documentation: "Calling numpy.random.seed()
+# from non-Numba code (or from object mode code) will seed the Numpy random 
+# generator, not the Numba random generator."
+# so let's do a seeding function with @njit and hope it works
+# if this doesn't fix the reproducibility issues, I'm officially giving up 
+@njit(cache=True)
+def _numba_seed_rng(seed):
+    np.random.seed(seed)
+
 
 def run_UG_simulation(file,
                       N=1000,
@@ -344,6 +353,7 @@ def run_UG_simulation(file,
                       mode="independent",
                       snapshot_frequency=100,
                       rep_id=0, 
+                      rep_seed=None
                       ):
     """Runs the Ultimatum game simulation with coevolving strategies and update rules for a given set of parameters and number of rounds.
     Generates a network with the given size and parameters, initialises the strategies and update rules of all nodes/players with the specified
@@ -371,6 +381,11 @@ def run_UG_simulation(file,
     """
     # start timer
     t0 = time.perf_counter()
+    # random seed
+    s = int(rep_seed.generate_state(1)[0])
+    np.random.seed(s) # numpy random generator
+    _numba_seed_rng(s) # numba random generator
+
     # initialize graph
     G = generate_mixed_network(N=N, alpha=alpha, m=m, m0_frac=m0_frac)
     # initialize UG    
@@ -400,7 +415,7 @@ def run_UG_simulation(file,
 
         # extract result data every couple of rounds to see evolution
         if r%snapshot_frequency == 0:
-                round_idx = round//snapshot_frequency
+                round_idx = r//snapshot_frequency
                 res_steps[round_idx] = round_idx
                 res_payoffs[round_idx, :] = payoffs
                 res_p[round_idx, :] = strategies[:, 0]
@@ -418,6 +433,7 @@ def run_UG_simulation(file,
     grp.create_dataset("updates", data=res_updates)
 
     grp.attrs["rep_id"] = rep_id
+    grp.attrs["seed"] = s
     grp.attrs["runtime_s"] = t1
 
 
@@ -431,7 +447,8 @@ def run_UG_combo(alpha,
                  num_reps=100,
                  num_rounds=1000, 
                  snapshot_frequency=100,
-                 output_path="results/" 
+                 output_path="results/",
+                 combo_seed=None,
                  ):
     """Runs num_reps repeated simulations of the Ultimatum Game with coevolving update rules for a given combination of parameters 
     (network heterogeneity alpha, player mode, update rules, initial update ratios) by repeatedly calling run_UG_simulation(). 
@@ -452,6 +469,7 @@ def run_UG_combo(alpha,
         snapshot_frequency (int, optional): Determines after how many rounds a snapshot of the simulation state is extracted and saved. 
                         Defaults to 100.
         output_path (str, optional): Path where result file will be saved. Defaults to "results/".
+        combo_seed(np.random.SeedSequence, optional): SeedSequence for generating random seeds for the simulation repetitions.
 
 
     Returns:
@@ -460,6 +478,11 @@ def run_UG_combo(alpha,
     # start timer
     t0 = time.perf_counter()
     filename = output_path + f"a{int(alpha*100)}_{mode}_{int(update_ratios[0]*100)}{update_rules[0]}_vs_{int(update_ratios[1]*100)}{update_rules[1]}.hdf5"
+
+    if combo_seed is None:
+        combo_seed = np.random.SeedSequence()
+
+    rep_seeds = combo_seed.spawn(num_reps)  # spawn seed sequences for all simulation repetitions
 
     try:
         # create & open file
@@ -488,6 +511,7 @@ def run_UG_combo(alpha,
                     num_rounds=num_rounds,
                     snapshot_frequency=snapshot_frequency,
                     rep_id=i,
+                    rep_seed=rep_seeds[i]
                 )
 
             t1 = time.perf_counter() - t0
@@ -526,13 +550,14 @@ def run_parameter_sweep(alphas,
                         modes,
                         update_combos, 
                         update_ratios, 
+                        main_seed,
                         N=1000,
                         m=4,
                         m0_frac=0.01,
                         num_rounds=1000,
                         output_path="results/",
                         num_reps=100, 
-                        snapshot_frequency=100
+                        snapshot_frequency=100,
                         ):
     """Run a parameter sweep of simulations of the Ultimatum game (UG) with coevolving update rules on complex networks. For each 
     combination of network heterogeneity parameters alphas, player modes, update rule combinations, and initial update rule ratios,
@@ -556,6 +581,7 @@ def run_parameter_sweep(alphas,
         update_combos (list): Update rule combinations to test. Supports rule pairs only. Rules can be "REP", "MOR", or "UI".
         update_ratios (list or np.ndarray): Ratios with which each update rule occurs in the initial population. 
                         Each element must have same length as each element in update_rules.
+        main_seed (int): Main seed used for the SeedSequence that seeds the random generators.
         N (int, optional): Number of nodes/players. Defaults to 1000.
         m (int, optional): Number of links created at each network growth step (see generate_mixed_networks()). Defaults to 4.
         m0_frac (float, optional):Fraction of nodes to from the initial complete network in the generation process
@@ -574,6 +600,11 @@ def run_parameter_sweep(alphas,
               for a in alphas for m in modes for update_combo in update_combos
               for ratio in update_ratios]
 
+    # set up seed sequence for proper parallel random number generation
+    # as recommended by numpy
+    ss = np.random.SeedSequence(main_seed)
+    combo_seeds = ss.spawn(len(combos))
+
     # run simulations (with joblib)
     results = Parallel(n_jobs=-1)(
         delayed(run_UG_combo)(
@@ -584,8 +615,9 @@ def run_parameter_sweep(alphas,
             num_rounds=num_rounds,
             snapshot_frequency=snapshot_frequency,
             num_reps=num_reps,
-            output_path=output_path)
-            for c in combos
+            output_path=output_path,
+            combo_seed=s)
+            for c, s in zip(combos, combo_seeds)
         )
 
     # write results to a sim overview csv file
@@ -613,6 +645,7 @@ def main():
     UPDATE_COMBOS = [["REP", "UI"], ["MOR", "REP"], ["UI", "MOR"]]  # update rule combinations
     FRACS = np.linspace(0.0, 1.0, 21)  
     UPDATE_RATIOS = np.column_stack((FRACS, 1.0-FRACS))  # initial ratios of update rules
+    MAIN_SEED = 2122311  # main random seed for reproducibility
 
     # print sweep info to check
     print("Starting parameter sweep!")
@@ -627,8 +660,9 @@ def main():
     run_parameter_sweep(ALPHAS, MODES, UPDATE_COMBOS, UPDATE_RATIOS,
                         N=N, m=M, m0_frac=M0_FRAC, num_rounds=NUM_ROUNDS, 
                         num_reps=NUM_REPS, output_path=OUTPUT_PATH, 
-                        snapshot_frequency=SNAPSHOT_FREQUENCY )
+                        snapshot_frequency=SNAPSHOT_FREQUENCY, main_seed=MAIN_SEED )
     print("Done!")
+    
 
 if __name__ == "__main__":
     main()
